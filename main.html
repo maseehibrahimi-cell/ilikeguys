@@ -1,1 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Friend Snake · classic game with a personal touch</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
 
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(145deg, #1b2a2f 0%, #22343b 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+        }
+
+        .game-wrapper {
+            background: #1d2c33;
+            border-radius: 2.5rem;
+            padding: 2rem 2rem 1.8rem 2rem;
+            box-shadow: 0 25px 35px -10px rgba(0, 0, 0, 0.8), inset 0 1px 3px rgba(255, 255, 255, 0.08);
+            border: 1px solid #3d4f58;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 1.3rem;
+            color: #cfecf0;
+            text-shadow: 0 2px 3px #0b1519;
+            padding: 0 0.3rem;
+        }
+
+        .score-box {
+            background: #112127;
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: #b1e6f0;
+            box-shadow: inset 0 3px 6px #030708, 0 5px 0 #0b1418;
+            border-bottom: 2px solid #2f4b55;
+        }
+
+        .score-box span {
+            color: #ffe78c;
+            font-weight: 700;
+            margin-right: 0.2rem;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .title span {
+            background: #2a3f48;
+            padding: 0.2rem 0.9rem;
+            border-radius: 30px;
+            font-size: 1rem;
+            color: #ddf4ff;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 600px;
+            height: 400px;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 0 0 2px #2e4a55, 0 18px 25px -8px black;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #18262c; /* fallback, but image will overlay */
+            cursor: pointer;
+        }
+
+        /* the FRIEND’S PHOTO as background — pure CSS, overlapped by canvas drawing */
+        .photo-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;  /* let clicks pass through to canvas */
+            z-index: 1;
+        }
+
+        canvas {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.5rem;
+            color: #aacbd7;
+            padding: 0 0.3rem;
+        }
+
+        .restart-btn {
+            background: #21363f;
+            border: none;
+            border-bottom: 4px solid #0d1f26;
+            color: #e2f2f7;
+            font-size: 1.3rem;
+            font-weight: 600;
+            padding: 0.5rem 2rem;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.07s;
+            box-shadow: 0 6px 0 #0f1c22;
+            letter-spacing: 0.5px;
+        }
+
+        .restart-btn:active {
+            transform: translateY(5px);
+            border-bottom-width: 2px;
+            box-shadow: 0 2px 0 #0f1c22;
+        }
+
+        .arrow-hint {
+            display: flex;
+            gap: 15px;
+            font-size: 1.2rem;
+            background: #1c2f37;
+            padding: 0.3rem 1.2rem;
+            border-radius: 40px;
+            border: 1px solid #385b68;
+        }
+
+        .arrow-hint span {
+            font-weight: 600;
+            color: #fedb9f;
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <div class="header">
+        <div class="title">
+            🐍 FRIEND SNAKE 
+            <span>photo bg</span>
+        </div>
+        <div class="score-box">
+            <span>🍎</span> <span id="scoreDisplay">0</span>
+        </div>
+    </div>
+
+    <!-- canvas area with absolute-positioned image behind it -->
+    <div class="canvas-container">
+        <!-- your friend's photo - replace src with actual image later -->
+        <img class="photo-bg" 
+             src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=600&h=400&fit=crop&auto=format" 
+             alt="friend's portrait as background"
+             id="friendPhoto"
+             crossorigin="anonymous">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+    </div>
+
+    <div class="controls">
+        <button class="restart-btn" id="restartButton">
+            <span>⟳</span> NEW GAME
+        </button>
+        <div class="arrow-hint">
+            <span>←↑↓→</span>  move
+        </div>
+    </div>
+    <p style="text-align:center; margin:0.8rem 0 0 0; color:#6a919f; font-size:0.9rem;">👇 the photo stays – snake crawls above it</p>
+</div>
+
+<script>
+    (function() {
+        // ---------- canvas & settings ----------
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreSpan = document.getElementById('scoreDisplay');
+
+        // Game constants
+        const GRID_SIZE = 20;          // 20x20 cells (600/20=30 cols, 400/20=20 rows)
+        const COLS = 30;
+        const ROWS = 20;
+        const CELL_SIZE = 20;           // px
+
+        // Snake state
+        let snake = [
+            {x: 15, y: 10},  // head (right middle)
+            {x: 14, y: 10},
+            {x: 13, y: 10}
+        ];
+        let food = {x: 8, y: 12};
+        let direction = {dx: 1, dy: 0};   // moving right
+        let nextDirection = {dx: 1, dy: 0};
+        let gameOver = false;
+        let winFlag = false;
+        let score = 0;
+
+        // game loop control
+        let gameInterval = null;
+        const MOVE_INTERVAL_MS = 150;     // 150ms per step – classic feel
+
+        // ---------- helper: generate random food not colliding with snake ----------
+        function generateRandomFood() {
+            const maxAttempts = 2000;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                const randX = Math.floor(Math.random() * COLS);
+                const randY = Math.floor(Math.random() * ROWS);
+                if (!snake.some(segment => segment.x === randX && segment.y === randY)) {
+                    return {x: randX, y: randY};
+                }
+            }
+            // if board nearly full -> scan brute force
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    if (!snake.some(seg => seg.x === x && seg.y === y)) {
+                        return {x, y};
+                    }
+                }
+            }
+            // no free cell = win condition (snake fills board)
+            return null;
+        }
+
+        // ---------- reset game ----------
+        function resetGame() {
+            // stop any running interval
+            if (gameInterval) {
+                clearInterval(gameInterval);
+                gameInterval = null;
+            }
+
+            // initial snake
+            snake = [
+                {x: 15, y: 10},
+                {x: 14, y: 10},
+                {x: 13, y: 10}
+            ];
+            direction = {dx: 1, dy: 0};
+            nextDirection = {dx: 1, dy: 0};
+            gameOver = false;
+            winFlag = false;
+
+            // generate valid food
+            const newFood = generateRandomFood();
+            if (newFood) {
+                food = newFood;
+            } else {
+                // extremely rare at start, fallback
+                food = {x: 5, y: 5};
+            }
+
+            score = 0;
+            scoreSpan.innerText = '0';
+
+            // re-draw
+            drawGame();
+
+            // start loop again
+            if (!gameInterval) {
+                gameInterval = setInterval(moveSnake, MOVE_INTERVAL_MS);
+            }
+        }
+
+        // ---------- move snake (called by interval) ----------
+        function moveSnake() {
+            if (gameOver) {
+                // if game over, stop moving (interval could be cleared, but double-check)
+                if (gameInterval) {
+                    clearInterval(gameInterval);
+                    gameInterval = null;
+                }
+                return;
+            }
+
+            // apply pending direction (no reversing)
+            if ((nextDirection.dx !== 0 || nextDirection.dy !== 0) &&
+                (snake.length === 0 || !(snake[0].x + nextDirection.dx === snake[1]?.x && snake[0].y + nextDirection.dy === snake[1]?.y))) {
+                // also forbid 180° turn opposite to current direction
+                const isOpposite = (direction.dx === -nextDirection.dx && direction.dy === -nextDirection.dy);
+                if (!isOpposite) {
+                    direction = {dx: nextDirection.dx, dy: nextDirection.dy};
+                }
+            }
+
+            const head = snake[0];
+            const newHead = {
+                x: head.x + direction.dx,
+                y: head.y + direction.dy
+            };
+
+            // check wall collision
+            if (newHead.x < 0 || newHead.x >= COLS || newHead.y < 0 || newHead.y >= ROWS) {
+                gameOver = true;
+                if (gameInterval) {
+                    clearInterval(gameInterval);
+                    gameInterval = null;
+                }
+                drawGame();
+                return;
+            }
+
+            // check food consumption
+            const isEating = (newHead.x === food.x && newHead.y === food.y);
+
+            // snake movement: add new head
+            snake.unshift(newHead);
+            if (!isEating) {
+                snake.pop(); // remove tail
+            } else {
+                // ate food: increase score, generate new food
+                score++;
+                scoreSpan.innerText = score;
+
+                const newFood = generateRandomFood();
+                if (newFood === null) {
+                    // no free cells -> win condition!
+                    winFlag = true;
+                    gameOver = true;  // treat as win (game stops)
+                    if (gameInterval) {
+                        clearInterval(gameInterval);
+                        gameInterval = null;
+                    }
+                    drawGame();
+                    return;
+                } else {
+                    food = newFood;
+                }
+            }
+
+            // collision with itself (head collides with body? but head is index 0)
+            const headCollision = snake.slice(1).some(segment => segment.x === snake[0].x && segment.y === snake[0].y);
+            if (headCollision) {
+                gameOver = true;
+                if (gameInterval) {
+                    clearInterval(gameInterval);
+                    gameInterval = null;
+                }
+            }
+
+            drawGame();
+
+            // if game ended by collision, ensure interval cleared
+            if (gameOver && gameInterval) {
+                clearInterval(gameInterval);
+                gameInterval = null;
+            }
+        }
+
+        // ---------- drawing (with photo background already behind) ----------
+        function drawGame() {
+            // clear canvas with full transparency – so photo behind shines through.
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // draw semi‑transparent grid (very subtle, so photo still visible)
+            ctx.strokeStyle = 'rgba(40, 70, 80, 0.4)';
+            ctx.lineWidth = 0.8;
+            for (let i = 0; i <= COLS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * CELL_SIZE, 0);
+                ctx.lineTo(i * CELL_SIZE, canvas.height);
+                ctx.strokeStyle = 'rgba(30, 60, 70, 0.35)';
+                ctx.stroke();
+            }
+            for (let i = 0; i <= ROWS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * CELL_SIZE);
+                ctx.lineTo(canvas.width, i * CELL_SIZE);
+                ctx.stroke();
+            }
+
+            // draw food (apple) – with outline to stand out from photo
+            ctx.shadowColor = 'black';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.beginPath();
+            ctx.arc(food.x * CELL_SIZE + CELL_SIZE/2, food.y * CELL_SIZE + CELL_SIZE/2, 8, 0, 2*Math.PI);
+            ctx.fillStyle = '#fe5f57'; // bright red
+            ctx.fill();
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = '#ffcc00';  // tiny highlight
+            ctx.beginPath();
+            ctx.arc(food.x * CELL_SIZE + 7, food.y * CELL_SIZE + 7, 2.5, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.shadowBlur = 0; // reset shadow for snake
+
+            // draw snake (semi‑translucent but vivid, so friend visible beneath)
+            snake.forEach((segment, index) => {
+                const isHead = (index === 0);
+                const x = segment.x * CELL_SIZE;
+                const y = segment.y * CELL_SIZE;
+
+                // use rgba so background blends
+                if (isHead) {
+                    ctx.fillStyle = 'rgba(80, 210, 150, 0.85)'; // mint head
+                } else {
+                    ctx.fillStyle = 'rgba(45, 170, 120, 0.75)'; // lighter green
+                }
+
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#0a1a1f';
+                ctx.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+
+                // eyes on head (cute)
+                if (isHead) {
+                    ctx.fillStyle = 'white';
+                    ctx.shadowBlur = 0;
+                    ctx.beginPath();
+                    ctx.arc(x + 6, y + 6, 2.2, 0, 2*Math.PI);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(x + 14, y + 6, 2.2, 0, 2*Math.PI);
+                    ctx.fill();
+                    ctx.fillStyle = '#0f2b2b';
+                    ctx.beginPath();
+                    ctx.arc(x + 5, y + 5, 1, 0, 2*Math.PI);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(x + 13, y + 5, 1, 0, 2*Math.PI);
+                    ctx.fill();
+                }
+            });
+
+            // shadow off for later
+            ctx.shadowBlur = 0;
+
+            // if game over overlay (with semi‑transparent message)
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(10, 10, 15, 0.65)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.font = 'bold 26px "Segoe UI", "Roboto", sans-serif';
+                ctx.fillStyle = '#f2e9d0';
+                ctx.shadowColor = '#000';
+                ctx.shadowBlur = 12;
+                ctx.shadowOffsetY = 3;
+                ctx.textAlign = 'center';
+                if (winFlag) {
+                    ctx.fillText('🏆 YOU WIN! 🏆', canvas.width/2, canvas.height/2 - 10);
+                    ctx.font = '18px sans-serif';
+                    ctx.fillText('friend is proud', canvas.width/2, canvas.height/2 + 30);
+                } else {
+                    ctx.fillText('💔 GAME OVER', canvas.width/2, canvas.height/2 - 10);
+                    ctx.font = '18px sans-serif';
+                    ctx.fillText('press NEW GAME', canvas.width/2, canvas.height/2 + 30);
+                }
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // ---------- keyboard control ----------
+        function handleKeyDown(e) {
+            const key = e.key;
+            // prevent page scrolling with arrows
+            if (key.startsWith('Arrow')) {
+                e.preventDefault();
+            }
+
+            if (gameOver) return;  // no direction changes after game over
+
+            switch (key) {
+                case 'ArrowUp':    if (direction.dy !== 1)  nextDirection = {dx: 0, dy: -1}; break;
+                case 'ArrowDown':  if (direction.dy !== -1) nextDirection = {dx: 0, dy: 1}; break;
+                case 'ArrowLeft':  if (direction.dx !== 1)  nextDirection = {dx: -1, dy: 0}; break;
+                case 'ArrowRight': if (direction.dx !== -1) nextDirection = {dx: 1, dy: 0}; break;
+                default: return;
+            }
+        }
+
+        // ---------- restart button ----------
+        document.getElementById('restartButton').addEventListener('click', function() {
+            resetGame();
+        });
+
+        // ---------- initial setup ----------
+        window.addEventListener('keydown', handleKeyDown);
+
+        // optional: prevent window scrolling with arrows globally (but we already did preventDefault for arrows)
+        window.addEventListener('keydown', (e) => {
+            if (e.key.startsWith('Arrow')) e.preventDefault();
+        }, {passive: false});
+
+        // start game
+        resetGame();
+
+        // if canvas is clicked we focus to ensure key capture (anyway it works)
+        canvas.addEventListener('click', () => canvas.focus());
+        // make canvas focusable
+        canvas.setAttribute('tabindex', '0');
+        canvas.style.outline = 'none';
+
+        // bonus: swap photo if you want to set your own friend image.
+        // instructions are displayed below
+        console.log('Replace the img src with your friend\'s photo URL.');
+    })();
+</script>
+
+<!-- small instruction to change photo -->
+<div style="position: fixed; bottom: 10px; right: 10px; background: #182b33; color: #afcdd9; padding: 8px 18px; border-radius: 60px; font-size: 0.9rem; border:1px solid #38626f;">📸 edit src in &lt;img&gt; to your friend’s picture</div>
+</body>
+</html>
