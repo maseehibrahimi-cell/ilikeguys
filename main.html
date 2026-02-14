@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Friend Snake · classic game with a personal touch</title>
+    <title>PDF buddy · snake with friend from PDF</title>
     <style>
         * {
             box-sizing: border-box;
@@ -18,6 +18,7 @@
             justify-content: center;
             align-items: center;
             font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            padding: 20px;
         }
 
         .game-wrapper {
@@ -26,6 +27,8 @@
             padding: 2rem 2rem 1.8rem 2rem;
             box-shadow: 0 25px 35px -10px rgba(0, 0, 0, 0.8), inset 0 1px 3px rgba(255, 255, 255, 0.08);
             border: 1px solid #3d4f58;
+            max-width: 950px;
+            width: fit-content;
         }
 
         .header {
@@ -36,6 +39,8 @@
             color: #cfecf0;
             text-shadow: 0 2px 3px #0b1519;
             padding: 0 0.3rem;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .score-box {
@@ -72,6 +77,50 @@
             color: #ddf4ff;
         }
 
+        /* Upload area */
+        .pdf-upload-area {
+            background: #13242c;
+            border-radius: 50px;
+            padding: 0.4rem 0.9rem 0.4rem 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border: 1px solid #386674;
+            box-shadow: inset 0 2px 5px #0b1a20;
+            flex-wrap: wrap;
+        }
+
+        .pdf-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #1d3843;
+            padding: 0.3rem 1rem;
+            border-radius: 40px;
+            color: #e1f2f7;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.1s;
+            border-bottom: 3px solid #0d262f;
+        }
+        .pdf-label:active {
+            transform: translateY(2px);
+            border-bottom-width: 1px;
+        }
+        .pdf-label input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+        }
+        .file-name {
+            color: #b4dde9;
+            font-size: 0.95rem;
+            max-width: 180px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
         .canvas-container {
             position: relative;
             width: 600px;
@@ -79,25 +128,26 @@
             border-radius: 28px;
             overflow: hidden;
             box-shadow: 0 0 0 2px #2e4a55, 0 18px 25px -8px black;
+            margin-top: 1rem;
         }
 
         #gameCanvas {
             display: block;
             width: 100%;
             height: 100%;
-            background: #18262c; /* fallback, but image will overlay */
+            background: #18262c; /* fallback while PDF loads */
             cursor: pointer;
         }
 
-        /* the FRIEND’S PHOTO as background — pure CSS, overlapped by canvas drawing */
-        .photo-bg {
+        /* PDF page rendered as background image */
+        .pdf-bg-image {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             object-fit: cover;
-            pointer-events: none;  /* let clicks pass through to canvas */
+            pointer-events: none;
             z-index: 1;
         }
 
@@ -116,6 +166,8 @@
             margin-top: 1.5rem;
             color: #aacbd7;
             padding: 0 0.3rem;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .restart-btn {
@@ -156,28 +208,43 @@
             font-weight: 600;
             color: #fedb9f;
         }
+
+        .status-message {
+            color: #9bc8d6;
+            font-size: 0.95rem;
+            margin: 0.5rem 0 0 0.5rem;
+        }
     </style>
+    <!-- pdf.js library from Mozilla -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 </head>
 <body>
 <div class="game-wrapper">
     <div class="header">
         <div class="title">
-            🐍 FRIEND SNAKE 
-            <span>photo bg</span>
+            📄 FRIEND FROM PDF 
+            <span>snake</span>
         </div>
         <div class="score-box">
             <span>🍎</span> <span id="scoreDisplay">0</span>
         </div>
     </div>
 
-    <!-- canvas area with absolute-positioned image behind it -->
+    <!-- PDF uploader -->
+    <div class="pdf-upload-area">
+        <label class="pdf-label">
+            ⬆️ Upload PDF
+            <input type="file" id="pdfUploader" accept=".pdf,application/pdf" />
+        </label>
+        <span class="file-name" id="pdfFileName">no file selected</span>
+        <span style="color:#648f9e; font-size:0.9rem;">(first page = background)</span>
+    </div>
+
+    <!-- canvas + dynamic PDF background image -->
     <div class="canvas-container">
-        <!-- your friend's photo - replace src with actual image later -->
-        <img class="photo-bg" 
-             src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=600&h=400&fit=crop&auto=format" 
-             alt="friend's portrait as background"
-             id="friendPhoto"
-             crossorigin="anonymous">
+        <img class="pdf-bg-image" id="pdfBackgroundImage" 
+             src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect width='600' height='400' fill='%232d4a55'/%3E%3Ctext x='30' y='200' font-family='monospace' font-size='22' fill='%239fc7d5'%3Eupload a PDF 📎%3C/text%3E%3C/svg%3E"
+             alt="PDF first page background">
         <canvas id="gameCanvas" width="600" height="400"></canvas>
     </div>
 
@@ -189,40 +256,122 @@
             <span>←↑↓→</span>  move
         </div>
     </div>
-    <p style="text-align:center; margin:0.8rem 0 0 0; color:#6a919f; font-size:0.9rem;">👇 the photo stays – snake crawls above it</p>
+    <div class="status-message" id="pdfStatus">✨ PDF background will appear after upload</div>
 </div>
 
 <script>
     (function() {
-        // ---------- canvas & settings ----------
+        // ---------- canvas & game settings ----------
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreSpan = document.getElementById('scoreDisplay');
+        const pdfBackgroundImg = document.getElementById('pdfBackgroundImage');
+        const fileInput = document.getElementById('pdfUploader');
+        const pdfFileNameSpan = document.getElementById('pdfFileName');
+        const pdfStatus = document.getElementById('pdfStatus');
 
         // Game constants
-        const GRID_SIZE = 20;          // 20x20 cells (600/20=30 cols, 400/20=20 rows)
+        const GRID_SIZE = 20;          // 20x20 cells
         const COLS = 30;
         const ROWS = 20;
-        const CELL_SIZE = 20;           // px
+        const CELL_SIZE = 20;
 
         // Snake state
         let snake = [
-            {x: 15, y: 10},  // head (right middle)
+            {x: 15, y: 10},
             {x: 14, y: 10},
             {x: 13, y: 10}
         ];
         let food = {x: 8, y: 12};
-        let direction = {dx: 1, dy: 0};   // moving right
+        let direction = {dx: 1, dy: 0};
         let nextDirection = {dx: 1, dy: 0};
         let gameOver = false;
         let winFlag = false;
         let score = 0;
 
-        // game loop control
         let gameInterval = null;
-        const MOVE_INTERVAL_MS = 150;     // 150ms per step – classic feel
+        const MOVE_INTERVAL_MS = 150;
 
-        // ---------- helper: generate random food not colliding with snake ----------
+        // ---------- PDF handling with pdf.js ----------
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        fileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                pdfFileNameSpan.textContent = 'no file selected';
+                return;
+            }
+            pdfFileNameSpan.textContent = file.name;
+            pdfStatus.textContent = '⏳ loading PDF ...';
+
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                const typedarray = new Uint8Array(e.target.result);
+                
+                pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+                    // get first page
+                    return pdf.getPage(1);
+                }).then(function(page) {
+                    const viewport = page.getViewport({ scale: 1.5 });  // scale to look nice
+                    // Prepare canvas like offscreen to render PDF page
+                    const offscreenCanvas = document.createElement('canvas');
+                    const offCtx = offscreenCanvas.getContext('2d');
+                    // we want final image 600x400 (fit exactly our canvas)
+                    // but keep aspect ratio, cover the area
+                    const targetWidth = 600;
+                    const targetHeight = 400;
+
+                    // scale viewport to cover dimensions while keeping ratio
+                    const scaleX = targetWidth / viewport.width;
+                    const scaleY = targetHeight / viewport.height;
+                    const scale = Math.max(scaleX, scaleY); // cover (might crop)
+                    
+                    const scaledViewport = page.getViewport({ scale: scale });
+                    
+                    offscreenCanvas.width = scaledViewport.width;
+                    offscreenCanvas.height = scaledViewport.height;
+
+                    const renderContext = {
+                        canvasContext: offCtx,
+                        viewport: scaledViewport
+                    };
+
+                    return page.render(renderContext).promise.then(() => {
+                        // crop or fit to 600x400 (we need to draw the relevant part onto target img)
+                        // create final image with exact canvas dimensions
+                        const finalCanvas = document.createElement('canvas');
+                        finalCanvas.width = targetWidth;
+                        finalCanvas.height = targetHeight;
+                        const finalCtx = finalCanvas.getContext('2d');
+
+                        // source: offscreenCanvas might be larger, we center-crop to fill target
+                        const sourceWidth = offscreenCanvas.width;
+                        const sourceHeight = offscreenCanvas.height;
+                        
+                        const sourceX = (sourceWidth - targetWidth) / 2;
+                        const sourceY = (sourceHeight - targetHeight) / 2;
+                        
+                        finalCtx.drawImage(
+                            offscreenCanvas,
+                            Math.max(0, sourceX), Math.max(0, sourceY),
+                            targetWidth, targetHeight,
+                            0, 0, targetWidth, targetHeight
+                        );
+                        
+                        // set as background image src
+                        pdfBackgroundImg.src = finalCanvas.toDataURL('image/png');
+                        pdfStatus.textContent = '✅ PDF background ready!';
+                    });
+                }).catch(err => {
+                    console.error(err);
+                    pdfStatus.textContent = '❌ PDF error – try another file';
+                    pdfBackgroundImg.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'600\' height=\'400\' viewBox=\'0 0 600 400\'%3E%3Crect width=\'600\' height=\'400\' fill=\'%232d4a55\'/%3E%3Ctext x=\'120\' y=\'200\' font-family=\'monospace\' font-size=\'24\' fill=\'%239fc7d5\'%3E❌ PDF failed%3C/text%3E%3C/svg%3E';
+                });
+            };
+            fileReader.readAsArrayBuffer(file);
+        });
+
+        // ---------- game functions ----------
         function generateRandomFood() {
             const maxAttempts = 2000;
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -232,7 +381,6 @@
                     return {x: randX, y: randY};
                 }
             }
-            // if board nearly full -> scan brute force
             for (let y = 0; y < ROWS; y++) {
                 for (let x = 0; x < COLS; x++) {
                     if (!snake.some(seg => seg.x === x && seg.y === y)) {
@@ -240,19 +388,15 @@
                     }
                 }
             }
-            // no free cell = win condition (snake fills board)
-            return null;
+            return null; // board full
         }
 
-        // ---------- reset game ----------
         function resetGame() {
-            // stop any running interval
             if (gameInterval) {
                 clearInterval(gameInterval);
                 gameInterval = null;
             }
 
-            // initial snake
             snake = [
                 {x: 15, y: 10},
                 {x: 14, y: 10},
@@ -263,31 +407,21 @@
             gameOver = false;
             winFlag = false;
 
-            // generate valid food
             const newFood = generateRandomFood();
-            if (newFood) {
-                food = newFood;
-            } else {
-                // extremely rare at start, fallback
-                food = {x: 5, y: 5};
-            }
+            if (newFood) food = newFood;
+            else food = {x: 5, y: 5};
 
             score = 0;
             scoreSpan.innerText = '0';
-
-            // re-draw
             drawGame();
 
-            // start loop again
             if (!gameInterval) {
                 gameInterval = setInterval(moveSnake, MOVE_INTERVAL_MS);
             }
         }
 
-        // ---------- move snake (called by interval) ----------
         function moveSnake() {
             if (gameOver) {
-                // if game over, stop moving (interval could be cleared, but double-check)
                 if (gameInterval) {
                     clearInterval(gameInterval);
                     gameInterval = null;
@@ -295,10 +429,9 @@
                 return;
             }
 
-            // apply pending direction (no reversing)
+            // apply direction (avoid opposite / 180)
             if ((nextDirection.dx !== 0 || nextDirection.dy !== 0) &&
-                (snake.length === 0 || !(snake[0].x + nextDirection.dx === snake[1]?.x && snake[0].y + nextDirection.dy === snake[1]?.y))) {
-                // also forbid 180° turn opposite to current direction
+                !(snake[0].x + nextDirection.dx === snake[1]?.x && snake[0].y + nextDirection.dy === snake[1]?.y)) {
                 const isOpposite = (direction.dx === -nextDirection.dx && direction.dy === -nextDirection.dy);
                 if (!isOpposite) {
                     direction = {dx: nextDirection.dx, dy: nextDirection.dy};
@@ -311,7 +444,7 @@
                 y: head.y + direction.dy
             };
 
-            // check wall collision
+            // wall collision
             if (newHead.x < 0 || newHead.x >= COLS || newHead.y < 0 || newHead.y >= ROWS) {
                 gameOver = true;
                 if (gameInterval) {
@@ -322,23 +455,19 @@
                 return;
             }
 
-            // check food consumption
             const isEating = (newHead.x === food.x && newHead.y === food.y);
 
-            // snake movement: add new head
             snake.unshift(newHead);
             if (!isEating) {
-                snake.pop(); // remove tail
+                snake.pop();
             } else {
-                // ate food: increase score, generate new food
                 score++;
                 scoreSpan.innerText = score;
 
                 const newFood = generateRandomFood();
                 if (newFood === null) {
-                    // no free cells -> win condition!
                     winFlag = true;
-                    gameOver = true;  // treat as win (game stops)
+                    gameOver = true;
                     if (gameInterval) {
                         clearInterval(gameInterval);
                         gameInterval = null;
@@ -350,7 +479,7 @@
                 }
             }
 
-            // collision with itself (head collides with body? but head is index 0)
+            // self collision
             const headCollision = snake.slice(1).some(segment => segment.x === snake[0].x && segment.y === snake[0].y);
             if (headCollision) {
                 gameOver = true;
@@ -362,26 +491,23 @@
 
             drawGame();
 
-            // if game ended by collision, ensure interval cleared
             if (gameOver && gameInterval) {
                 clearInterval(gameInterval);
                 gameInterval = null;
             }
         }
 
-        // ---------- drawing (with photo background already behind) ----------
         function drawGame() {
-            // clear canvas with full transparency – so photo behind shines through.
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // draw semi‑transparent grid (very subtle, so photo still visible)
-            ctx.strokeStyle = 'rgba(40, 70, 80, 0.4)';
+            // draw very faint grid (so background visible)
+            ctx.strokeStyle = 'rgba(50, 90, 100, 0.3)';
             ctx.lineWidth = 0.8;
             for (let i = 0; i <= COLS; i++) {
                 ctx.beginPath();
                 ctx.moveTo(i * CELL_SIZE, 0);
                 ctx.lineTo(i * CELL_SIZE, canvas.height);
-                ctx.strokeStyle = 'rgba(30, 60, 70, 0.35)';
+                ctx.strokeStyle = 'rgba(40, 80, 95, 0.3)';
                 ctx.stroke();
             }
             for (let i = 0; i <= ROWS; i++) {
@@ -391,40 +517,33 @@
                 ctx.stroke();
             }
 
-            // draw food (apple) – with outline to stand out from photo
-            ctx.shadowColor = 'black';
-            ctx.shadowBlur = 8;
+            // food (apple) – bright to stand out
+            ctx.shadowColor = '#000000';
+            ctx.shadowBlur = 10;
             ctx.shadowOffsetX = 2;
             ctx.shadowOffsetY = 2;
             ctx.beginPath();
             ctx.arc(food.x * CELL_SIZE + CELL_SIZE/2, food.y * CELL_SIZE + CELL_SIZE/2, 8, 0, 2*Math.PI);
-            ctx.fillStyle = '#fe5f57'; // bright red
+            ctx.fillStyle = '#fe5f57';
             ctx.fill();
             ctx.shadowBlur = 12;
-            ctx.fillStyle = '#ffcc00';  // tiny highlight
+            ctx.fillStyle = '#ffee88';
             ctx.beginPath();
-            ctx.arc(food.x * CELL_SIZE + 7, food.y * CELL_SIZE + 7, 2.5, 0, 2*Math.PI);
+            ctx.arc(food.x * CELL_SIZE + 7, food.y * CELL_SIZE + 6, 2.3, 0, 2*Math.PI);
             ctx.fill();
-            ctx.shadowBlur = 0; // reset shadow for snake
+            ctx.shadowBlur = 0;
 
-            // draw snake (semi‑translucent but vivid, so friend visible beneath)
+            // snake with transparency to see PDF
             snake.forEach((segment, index) => {
                 const isHead = (index === 0);
                 const x = segment.x * CELL_SIZE;
                 const y = segment.y * CELL_SIZE;
 
-                // use rgba so background blends
-                if (isHead) {
-                    ctx.fillStyle = 'rgba(80, 210, 150, 0.85)'; // mint head
-                } else {
-                    ctx.fillStyle = 'rgba(45, 170, 120, 0.75)'; // lighter green
-                }
-
-                ctx.shadowBlur = 10;
+                ctx.fillStyle = isHead ? 'rgba(80, 210, 150, 0.85)' : 'rgba(45, 170, 120, 0.75)';
+                ctx.shadowBlur = 8;
                 ctx.shadowColor = '#0a1a1f';
                 ctx.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
 
-                // eyes on head (cute)
                 if (isHead) {
                     ctx.fillStyle = 'white';
                     ctx.shadowBlur = 0;
@@ -443,82 +562,52 @@
                     ctx.fill();
                 }
             });
-
-            // shadow off for later
             ctx.shadowBlur = 0;
 
-            // if game over overlay (with semi‑transparent message)
             if (gameOver) {
-                ctx.fillStyle = 'rgba(10, 10, 15, 0.65)';
+                ctx.fillStyle = 'rgba(10, 10, 15, 0.6)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                ctx.font = 'bold 26px "Segoe UI", "Roboto", sans-serif';
+                ctx.font = 'bold 26px "Segoe UI", sans-serif';
                 ctx.fillStyle = '#f2e9d0';
                 ctx.shadowColor = '#000';
                 ctx.shadowBlur = 12;
                 ctx.shadowOffsetY = 3;
                 ctx.textAlign = 'center';
                 if (winFlag) {
-                    ctx.fillText('🏆 YOU WIN! 🏆', canvas.width/2, canvas.height/2 - 10);
+                    ctx.fillText('🏆 WINNER', canvas.width/2, canvas.height/2 - 10);
                     ctx.font = '18px sans-serif';
-                    ctx.fillText('friend is proud', canvas.width/2, canvas.height/2 + 30);
+                    ctx.fillText('friend celebrates', canvas.width/2, canvas.height/2 + 30);
                 } else {
                     ctx.fillText('💔 GAME OVER', canvas.width/2, canvas.height/2 - 10);
                     ctx.font = '18px sans-serif';
-                    ctx.fillText('press NEW GAME', canvas.width/2, canvas.height/2 + 30);
+                    ctx.fillText('new game?', canvas.width/2, canvas.height/2 + 30);
                 }
                 ctx.shadowBlur = 0;
             }
         }
 
-        // ---------- keyboard control ----------
-        function handleKeyDown(e) {
-            const key = e.key;
-            // prevent page scrolling with arrows
-            if (key.startsWith('Arrow')) {
-                e.preventDefault();
-            }
-
-            if (gameOver) return;  // no direction changes after game over
-
-            switch (key) {
+        // control & restart
+        window.addEventListener('keydown', function(e) {
+            if (e.key.startsWith('Arrow')) e.preventDefault();
+            if (gameOver) return;
+            switch (e.key) {
                 case 'ArrowUp':    if (direction.dy !== 1)  nextDirection = {dx: 0, dy: -1}; break;
                 case 'ArrowDown':  if (direction.dy !== -1) nextDirection = {dx: 0, dy: 1}; break;
                 case 'ArrowLeft':  if (direction.dx !== 1)  nextDirection = {dx: -1, dy: 0}; break;
                 case 'ArrowRight': if (direction.dx !== -1) nextDirection = {dx: 1, dy: 0}; break;
-                default: return;
             }
-        }
-
-        // ---------- restart button ----------
-        document.getElementById('restartButton').addEventListener('click', function() {
-            resetGame();
         });
 
-        // ---------- initial setup ----------
-        window.addEventListener('keydown', handleKeyDown);
+        document.getElementById('restartButton').addEventListener('click', resetGame);
 
-        // optional: prevent window scrolling with arrows globally (but we already did preventDefault for arrows)
-        window.addEventListener('keydown', (e) => {
-            if (e.key.startsWith('Arrow')) e.preventDefault();
-        }, {passive: false});
+        canvas.setAttribute('tabindex', '0');
+        canvas.style.outline = 'none';
 
         // start game
         resetGame();
 
-        // if canvas is clicked we focus to ensure key capture (anyway it works)
-        canvas.addEventListener('click', () => canvas.focus());
-        // make canvas focusable
-        canvas.setAttribute('tabindex', '0');
-        canvas.style.outline = 'none';
-
-        // bonus: swap photo if you want to set your own friend image.
-        // instructions are displayed below
-        console.log('Replace the img src with your friend\'s photo URL.');
+        // minor: update background if upload fails, keep placeholder
     })();
 </script>
-
-<!-- small instruction to change photo -->
-<div style="position: fixed; bottom: 10px; right: 10px; background: #182b33; color: #afcdd9; padding: 8px 18px; border-radius: 60px; font-size: 0.9rem; border:1px solid #38626f;">📸 edit src in &lt;img&gt; to your friend’s picture</div>
 </body>
 </html>
